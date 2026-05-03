@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getProblemById } from '../../../engine/problems';
 import { createSession, processInput, getSessionStatus } from '../../../engine/judge';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ProblemPage() {
   const { id } = useParams();
+  const { user, logout, updateStats } = useAuth();
   const [problem, setProblem] = useState(null);
   const [session, setSession] = useState(null);
   const [consoleLines, setConsoleLines] = useState([]);
@@ -15,7 +17,8 @@ export default function ProblemPage() {
   const [showResult, setShowResult] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
   const [hasWon, setHasWon] = useState(false);
-  
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const outputRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -65,9 +68,12 @@ export default function ProblemPage() {
     setConsoleLines(prev => [...prev, { type: lineType, text: result.message }]);
 
     if (result.session.isFinished) {
-      setHasWon(result.session.won);
+      const won = result.session.won;
+      setHasWon(won);
       setResultMessage(result.message);
       setShowResult(true);
+      // Record stats on user profile
+      if (problem) updateStats(problem, won);
     }
   };
 
@@ -108,7 +114,35 @@ export default function ProblemPage() {
         <ul className="navbar__links">
           <li><Link href="/">Home</Link></li>
           <li><Link href="/problems">Problems</Link></li>
+          {user && <li><Link href="/profile">Profile</Link></li>}
         </ul>
+        {user ? (
+          <div className="navbar__user">
+            <button
+              id="problem-avatar-btn"
+              className="navbar__avatar"
+              onClick={() => setDropdownOpen((o) => !o)}
+              aria-expanded={dropdownOpen}
+            >
+              {user.username.slice(0, 2).toUpperCase()}
+            </button>
+            {dropdownOpen && (
+              <div className="navbar__dropdown" role="menu">
+                <div className="navbar__dropdown-header">
+                  <strong>{user.username}</strong>
+                  <span>{user.email}</span>
+                </div>
+                <Link href="/profile" className="navbar__dropdown-item" onClick={() => setDropdownOpen(false)} role="menuitem">👤 My Profile</Link>
+                <button id="problem-logout-btn" className="navbar__dropdown-item navbar__dropdown-item--danger" onClick={() => { logout(); setDropdownOpen(false); }} role="menuitem">🚪 Logout</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="navbar__auth">
+            <Link href="/login" className="btn btn--outline btn--sm">Sign In</Link>
+            <Link href="/register" className="btn btn--primary btn--sm">Register</Link>
+          </div>
+        )}
       </nav>
 
       <div className="problem-page">
@@ -128,14 +162,14 @@ export default function ProblemPage() {
 
           <div className="problem-panel__section">
             <h3>Problem Statement</h3>
-            <p>{problem.statement.description}</p>
+            <p dangerouslySetInnerHTML={{ __html: problem.statement.description }}></p>
           </div>
 
           <div className="problem-panel__section">
             <h3>Interaction Format</h3>
             <ul>
               {problem.statement.interaction.map((line, idx) => (
-                <li key={idx}>{line}</li>
+                <li key={idx} dangerouslySetInnerHTML={{ __html: line }}></li>
               ))}
             </ul>
           </div>
@@ -144,7 +178,7 @@ export default function ProblemPage() {
             <h3>Rules</h3>
             <ul>
               {problem.statement.rules.map((line, idx) => (
-                <li key={idx}>{line}</li>
+                <li key={idx} dangerouslySetInnerHTML={{ __html: line }}></li>
               ))}
             </ul>
           </div>
@@ -153,8 +187,7 @@ export default function ProblemPage() {
             <h3>Example Interaction</h3>
             <div className="problem-panel__example">
               {problem.example.map((line, idx) => (
-                <div key={idx} className={line.type === 'query' ? 'query' : line.type === 'answer' ? 'answer' : 'response'}>
-                  {line.text}
+                <div key={idx} className={line.type === 'query' ? 'query' : line.type === 'answer' ? 'answer' : 'response'} dangerouslySetInnerHTML={{ __html: line.text }}>
                 </div>
               ))}
             </div>
@@ -162,7 +195,7 @@ export default function ProblemPage() {
 
           <div className="problem-panel__section">
             <h3>💡 Hint</h3>
-            <p>{problem.statement.hint}</p>
+            <p dangerouslySetInnerHTML={{ __html: problem.statement.hint }}></p>
           </div>
         </div>
 

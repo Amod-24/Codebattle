@@ -7,5 +7,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['**/*.test.js', '**/*.test.jsx', '**/__tests__/**/*.js'],
     globals: true,
+    reporters: ['default', 'junit'],
+    outputFile: 'test-results/junit.xml',
   },
 });

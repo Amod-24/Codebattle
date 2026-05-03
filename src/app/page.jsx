@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Home() {
   const terminalRef = useRef(null);
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Terminal animation logic ported from vanilla home.js
     const lines = [
       '> Initializing judge system...',
       '> Loading interactive problems...',
@@ -15,29 +19,28 @@ export default function Home() {
       '> Ready. ? to query, ! to answer.',
       '_'
     ];
-    
+
     let currentLine = 0;
-    let currentChar = 0;
     const terminalEl = terminalRef.current;
     if (!terminalEl) return;
 
     terminalEl.innerHTML = '';
-    
+
     function typeLine() {
       if (currentLine >= lines.length) return;
-      
+
       const line = lines[currentLine];
       const lineEl = document.createElement('div');
-      
+
       if (currentLine === lines.length - 1) {
         lineEl.className = 'terminal-cursor';
         lineEl.textContent = line;
         terminalEl.appendChild(lineEl);
         return;
       }
-      
+
       terminalEl.appendChild(lineEl);
-      
+
       let charIndex = 0;
       const typeChar = () => {
         if (charIndex < line.length) {
@@ -49,12 +52,17 @@ export default function Home() {
           setTimeout(typeLine, 300);
         }
       };
-      
+
       typeChar();
     }
-    
+
     typeLine();
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    setDropdownOpen(false);
+  };
 
   return (
     <div className="home-page">
@@ -66,7 +74,52 @@ export default function Home() {
         <ul className="navbar__links">
           <li><Link href="/" className="active">Home</Link></li>
           <li><Link href="/problems">Problems</Link></li>
+          {user && <li><Link href="/profile">Profile</Link></li>}
         </ul>
+
+        {/* Auth section */}
+        {user ? (
+          <div className="navbar__user">
+            <button
+              id="navbar-avatar-btn"
+              className="navbar__avatar"
+              onClick={() => setDropdownOpen((o) => !o)}
+              aria-expanded={dropdownOpen}
+              aria-haspopup="true"
+            >
+              {user.username.slice(0, 2).toUpperCase()}
+            </button>
+            {dropdownOpen && (
+              <div className="navbar__dropdown" role="menu">
+                <div className="navbar__dropdown-header">
+                  <strong>{user.username}</strong>
+                  <span>{user.email}</span>
+                </div>
+                <Link
+                  href="/profile"
+                  className="navbar__dropdown-item"
+                  onClick={() => setDropdownOpen(false)}
+                  role="menuitem"
+                >
+                  👤 My Profile
+                </Link>
+                <button
+                  id="navbar-logout-btn"
+                  className="navbar__dropdown-item navbar__dropdown-item--danger"
+                  onClick={handleLogout}
+                  role="menuitem"
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="navbar__auth">
+            <Link href="/login" className="btn btn--outline btn--sm">Sign In</Link>
+            <Link href="/register" className="btn btn--primary btn--sm">Register</Link>
+          </div>
+        )}
       </nav>
 
       <main className="hero">
@@ -121,3 +174,4 @@ export default function Home() {
     </div>
   );
 }
+
