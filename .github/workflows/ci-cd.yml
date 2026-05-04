@@ -5,11 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,6 +31,11 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
+      # OPTIONAL: start app if needed for E2E
+      # - run: npm run build
+      # - run: npm start &
+      # - run: npx wait-on http://localhost:3000
+
       - name: Run E2E Tests
         run: npm run test:e2e
 
@@ -47,17 +54,27 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     defaults:
       run:
         working-directory: ./terraform
+
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ✅ Proper AWS auth (FIXED)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ✅ Debug step (very useful)
       - name: Verify AWS Auth
         run: aws sts get-caller-identity
 
@@ -70,19 +87,33 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Import existing resources (if they exist)
+      # ✅ Safe import logic (FIXED for your new Terraform)
+      - name: Import existing resources if needed
         run: |
-          # Import ECR repo if it already exists
-          aws ecr describe-repositories --repository-names codebattle-repo --region $AWS_REGION 2>/dev/null && \
-            terraform import aws_ecr_repository.main codebattle-repo || \
-            echo "ECR repo does not exist yet, will be created"
+          set -e
 
-          # Import CloudWatch log group if it already exists
-          aws logs describe-log-groups --log-group-name-prefix /ecs/codebattle --region $AWS_REGION \
-            --query 'logGroups[?logGroupName==`/ecs/codebattle`].logGroupName' \
-            --output text | grep -q '/ecs/codebattle' && \
-            terraform import aws_cloudwatch_log_group.ecs_log_group /ecs/codebattle || \
-            echo "Log group does not exist yet, will be created"
+          import_if_exists() {
+            local resource=$1
+            local id=$2
+            local check_cmd=$3
+
+            if ! terraform state list | grep -q "^${resource}$"; then
+              if eval "$check_cmd"; then
+                echo "Importing existing $resource"
+                terraform import $resource "$id" || true
+              else
+                echo "$resource does not exist"
+              fi
+            else
+              echo "$resource already in state"
+            fi
+          }
+
+          import_if_exists "aws_ecr_repository.main" "codebattle-repo" \
+            "aws ecr describe-repositories --repository-names codebattle-repo >/dev/null 2>&1"
+
+          import_if_exists "aws_ecs_cluster.main" "codebattle-cluster" \
+            "aws ecs describe-clusters --clusters codebattle-cluster --query 'clusters[0].clusterArn' --output text | grep -q 'arn:'"
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
@@ -95,26 +126,27 @@ jobs:
     needs: terraform
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ✅ Proper AWS auth
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -127,11 +159,14 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Download task definition
+      # ✅ safer ECS fetch
+      - name: Fetch task definition
         run: |
-          aws ecs describe-task-definition --task-definition codebattle-task --query taskDefinition > task-definition.json
+          aws ecs describe-task-definition \
+            --task-definition codebattle-task \
+            --query taskDefinition > task-definition.json
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      - name: Render new task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -139,7 +174,7 @@ jobs:
           container-name: codebattle-container
           image: ${{ steps.build-image.outputs.image }}
 
-      - name: Deploy Amazon ECS task definition
+      - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}

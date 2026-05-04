@@ -17,15 +17,17 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+# --- RANDOM SUFFIX (only for safe unique resources) ---
 resource "random_string" "suffix" {
-  length  = 8
+  length  = 6
   special = false
   upper   = false
 }
 
-# --- S3 Bucket Configuration ---
+# --- S3 Bucket (unique already) ---
 resource "aws_s3_bucket" "artifacts" {
-  bucket = "${var.project_name}-artifacts-${random_string.suffix.result}"
+  bucket        = "${var.project_name}-artifacts-${random_string.suffix.result}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "artifacts_versioning" {
@@ -52,17 +54,22 @@ resource "aws_s3_bucket_public_access_block" "artifacts_public_access" {
   restrict_public_buckets = true
 }
 
-# --- ECR Repository ---
+# --- ECR Repository (KEEP STABLE NAME) ---
 resource "aws_ecr_repository" "main" {
   name                 = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# --- VPC & Networking ---
+# --- VPC ---
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
@@ -70,15 +77,16 @@ module "vpc" {
   name = "${var.project_name}-vpc"
   cidr = "10.0.0.0/16"
 
-  azs             = ["${var.aws_region}a", "${var.aws_region}b"]
-  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
-  
+  azs            = ["${var.aws_region}a", "${var.aws_region}b"]
+  public_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+
   enable_nat_gateway = false
   enable_vpn_gateway = false
 }
 
+# --- Security Group ---
 resource "aws_security_group" "ecs_sg" {
-  name        = "${var.project_name}-ecs-sg"
+  name        = "${var.project_name}-ecs-sg-${random_string.suffix.result}"
   description = "Security group for ECS tasks"
   vpc_id      = module.vpc.vpc_id
 
@@ -97,9 +105,9 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# --- IAM Roles ---
+# --- IAM Role (unique to avoid conflict) ---
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.project_name}-ecs-task-execution-role"
+  name = "${var.project_name}-ecs-task-execution-role-${random_string.suffix.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -120,47 +128,53 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# --- ECS Cluster & Service ---
+# --- ECS Cluster ---
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
 }
 
+# --- CloudWatch Logs (unique name) ---
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
-  name              = "/ecs/${var.project_name}"
+  name              = "/ecs/${var.project_name}-${random_string.suffix.result}"
   retention_in_days = 7
 }
 
+# --- ECS Task Definition ---
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.project_name}-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = 256
   memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  execution_role_arn = aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
     {
       name      = "${var.project_name}-container"
       image     = "${aws_ecr_repository.main.repository_url}:latest"
       essential = true
+
       portMappings = [
         {
           containerPort = 3000
           hostPort      = 3000
         }
       ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs_log_group.name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "ecs"
+          awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
         }
       }
     }
   ])
 }
 
+# --- ECS Service ---
 resource "aws_ecs_service" "main" {
   name            = "${var.project_name}-service"
   cluster         = aws_ecs_cluster.main.id
@@ -173,7 +187,7 @@ resource "aws_ecs_service" "main" {
     security_groups  = [aws_security_group.ecs_sg.id]
     assign_public_ip = true
   }
-  
+
   lifecycle {
     ignore_changes = [task_definition, desired_count]
   }
