@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Next.js build output
+.next/
+.dist/
+out/
+
+# Terraform state and cache
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
