@@ -132,7 +132,7 @@ export default function Home() {
             through logical queries against our judge system.
           </p>
           <div className="hero__actions">
-            <Link href="/problems" className="btn btn--primary btn--lg">
+            <Link href="/problems" id="cta-start" className="btn btn--primary btn--lg">
               Start Solving
             </Link>
             <a href="https://github.com/Amod-24/Codebattle" target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--lg">

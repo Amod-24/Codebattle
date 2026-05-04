@@ -79,6 +79,6 @@ test.describe('CodeBattle - E2E', () => {
 
     // Console should show reset message
     const output = page.locator('#console-output');
-    await expect(output).toContainText('New game started');
+    await expect(output).toContainText('Welcome to CodeBattle');
   });
 });

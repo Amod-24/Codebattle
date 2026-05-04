@@ -217,7 +217,7 @@ export default function ProblemPage() {
             )}
           </div>
 
-          <div className="console-panel__output" ref={outputRef}>
+          <div id="console-output" className="console-panel__output" ref={outputRef}>
             {consoleLines.map((line, i) => (
               <div key={i} className={`console-line console-line--${line.type}`}>
                 {line.type === 'response' ? <span className="console-prefix">← </span> : null}
@@ -243,6 +243,7 @@ export default function ProblemPage() {
                 ref={inputRef}
               />
               <button 
+                id="send-btn"
                 className="btn btn--primary btn--sm" 
                 onClick={handleSend}
                 disabled={session?.isFinished || !inputValue.trim()}
@@ -253,7 +254,7 @@ export default function ProblemPage() {
           </div>
 
           <div className="console-panel__actions">
-            <button className="btn btn--outline btn--sm" onClick={() => initGame(problem)}>
+            <button id="reset-btn" className="btn btn--outline btn--sm" onClick={() => initGame(problem)}>
               🔄 New Game
             </button>
             <button className="btn btn--outline btn--sm" onClick={clearConsole}>
