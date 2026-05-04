@@ -4,7 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getProblemById } from '../../../engine/problems';
-import { createSession, processInput, getSessionStatus } from '../../../engine/judge';
+import {
+  createSession,
+  processInput,
+  getSessionStatus,
+} from '../../../engine/judge';
 import { useAuth } from '@/context/AuthContext';
 
 export default function ProblemPage() {
@@ -40,9 +44,15 @@ export default function ProblemPage() {
     const newSession = createSession(prob);
     setSession(newSession);
     setConsoleLines([
-      { type: 'system', text: 'Welcome to CodeBattle! The system has chosen a secret number.' },
-      { type: 'system', text: 'Use "? N" to query and "! N" to submit your answer.' },
-      { type: 'system', text: '───────────────────────────────────────' }
+      {
+        type: 'system',
+        text: 'Welcome to CodeBattle! The system has chosen a secret number.',
+      },
+      {
+        type: 'system',
+        text: 'Use "? N" to query and "! N" to submit your answer.',
+      },
+      { type: 'system', text: '───────────────────────────────────────' },
     ]);
     setShowResult(false);
     setInputValue('');
@@ -53,7 +63,7 @@ export default function ProblemPage() {
     const value = inputValue.trim();
     if (!value || !session) return;
 
-    setConsoleLines(prev => [...prev, { type: 'query', text: `❯ ${value}` }]);
+    setConsoleLines((prev) => [...prev, { type: 'query', text: `❯ ${value}` }]);
     setInputValue('');
 
     const result = processInput(session, value);
@@ -65,7 +75,10 @@ export default function ProblemPage() {
     else if (result.type === 'error') lineType = 'error';
     else if (result.type === 'info') lineType = 'info';
 
-    setConsoleLines(prev => [...prev, { type: lineType, text: result.message }]);
+    setConsoleLines((prev) => [
+      ...prev,
+      { type: lineType, text: result.message },
+    ]);
 
     if (result.session.isFinished) {
       const won = result.session.won;
@@ -79,7 +92,7 @@ export default function ProblemPage() {
 
   const clearConsole = () => {
     setConsoleLines([
-      { type: 'system', text: 'Console cleared. Continue your game...' }
+      { type: 'system', text: 'Console cleared. Continue your game...' },
     ]);
     inputRef.current?.focus();
   };
@@ -97,13 +110,15 @@ export default function ProblemPage() {
       <div style={{ padding: '100px 20px', textAlign: 'center' }}>
         <h1>Problem Not Found</h1>
         <p>The requested problem does not exist.</p>
-        <Link href="/problems" className="btn btn--primary">← Back to Problems</Link>
+        <Link href="/problems" className="btn btn--primary">
+          ← Back to Problems
+        </Link>
       </div>
     );
   }
 
   const status = session ? getSessionStatus(session) : null;
-  
+
   return (
     <>
       <nav className="navbar">
@@ -112,9 +127,17 @@ export default function ProblemPage() {
           CodeBattle
         </Link>
         <ul className="navbar__links">
-          <li><Link href="/">Home</Link></li>
-          <li><Link href="/problems">Problems</Link></li>
-          {user && <li><Link href="/profile">Profile</Link></li>}
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          <li>
+            <Link href="/problems">Problems</Link>
+          </li>
+          {user && (
+            <li>
+              <Link href="/profile">Profile</Link>
+            </li>
+          )}
         </ul>
         {user ? (
           <div className="navbar__user">
@@ -132,15 +155,36 @@ export default function ProblemPage() {
                   <strong>{user.username}</strong>
                   <span>{user.email}</span>
                 </div>
-                <Link href="/profile" className="navbar__dropdown-item" onClick={() => setDropdownOpen(false)} role="menuitem">👤 My Profile</Link>
-                <button id="problem-logout-btn" className="navbar__dropdown-item navbar__dropdown-item--danger" onClick={() => { logout(); setDropdownOpen(false); }} role="menuitem">🚪 Logout</button>
+                <Link
+                  href="/profile"
+                  className="navbar__dropdown-item"
+                  onClick={() => setDropdownOpen(false)}
+                  role="menuitem"
+                >
+                  👤 My Profile
+                </Link>
+                <button
+                  id="problem-logout-btn"
+                  className="navbar__dropdown-item navbar__dropdown-item--danger"
+                  onClick={() => {
+                    logout();
+                    setDropdownOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  🚪 Logout
+                </button>
               </div>
             )}
           </div>
         ) : (
           <div className="navbar__auth">
-            <Link href="/login" className="btn btn--outline btn--sm">Sign In</Link>
-            <Link href="/register" className="btn btn--primary btn--sm">Register</Link>
+            <Link href="/login" className="btn btn--outline btn--sm">
+              Sign In
+            </Link>
+            <Link href="/register" className="btn btn--primary btn--sm">
+              Register
+            </Link>
           </div>
         )}
       </nav>
@@ -149,20 +193,30 @@ export default function ProblemPage() {
         {/* Left Panel */}
         <div className="problem-panel">
           <div className="problem-panel__header">
-            <Link href="/problems" className="problem-panel__back">←</Link>
+            <Link href="/problems" className="problem-panel__back">
+              ←
+            </Link>
             <h1 className="problem-panel__title">{problem.title}</h1>
           </div>
 
           <div className="problem-panel__tags">
-            <span className={`tag tag--${problem.difficulty}`}>{problem.difficulty}</span>
-            {problem.tags.map(t => (
-              <span key={t} className="tag tag--interactive">{t}</span>
+            <span className={`tag tag--${problem.difficulty}`}>
+              {problem.difficulty}
+            </span>
+            {problem.tags.map((t) => (
+              <span key={t} className="tag tag--interactive">
+                {t}
+              </span>
             ))}
           </div>
 
           <div className="problem-panel__section">
             <h3>Problem Statement</h3>
-            <p dangerouslySetInnerHTML={{ __html: problem.statement.description }}></p>
+            <p
+              dangerouslySetInnerHTML={{
+                __html: problem.statement.description,
+              }}
+            ></p>
           </div>
 
           <div className="problem-panel__section">
@@ -187,8 +241,17 @@ export default function ProblemPage() {
             <h3>Example Interaction</h3>
             <div className="problem-panel__example">
               {problem.example.map((line, idx) => (
-                <div key={idx} className={line.type === 'query' ? 'query' : line.type === 'answer' ? 'answer' : 'response'} dangerouslySetInnerHTML={{ __html: line.text }}>
-                </div>
+                <div
+                  key={idx}
+                  className={
+                    line.type === 'query'
+                      ? 'query'
+                      : line.type === 'answer'
+                        ? 'answer'
+                        : 'response'
+                  }
+                  dangerouslySetInnerHTML={{ __html: line.text }}
+                ></div>
               ))}
             </div>
           </div>
@@ -205,22 +268,39 @@ export default function ProblemPage() {
             <span className="console-panel__title">⚡ Interactive Console</span>
             {status && (
               <div className="console-panel__stats">
-                <div className={`stat ${status.queriesRemaining <= 2 ? 'stat--danger' : status.queriesRemaining <= 4 ? 'stat--warning' : ''}`}>
+                <div
+                  className={`stat ${status.queriesRemaining <= 2 ? 'stat--danger' : status.queriesRemaining <= 4 ? 'stat--warning' : ''}`}
+                >
                   <span>Queries:</span>
-                  <span className="stat__value">{status.queriesUsed}/{problem.maxQueries}</span>
+                  <span className="stat__value">
+                    {status.queriesUsed}/{problem.maxQueries}
+                  </span>
                 </div>
-                <div className={`stat ${status.attemptsRemaining <= 0 ? 'stat--danger' : status.attemptsRemaining === 1 ? 'stat--warning' : ''}`}>
+                <div
+                  className={`stat ${status.attemptsRemaining <= 0 ? 'stat--danger' : status.attemptsRemaining === 1 ? 'stat--warning' : ''}`}
+                >
                   <span>Attempts:</span>
-                  <span className="stat__value">{status.currentAttempt}/{problem.maxAttempts}</span>
+                  <span className="stat__value">
+                    {status.currentAttempt}/{problem.maxAttempts}
+                  </span>
                 </div>
               </div>
             )}
           </div>
 
-          <div id="console-output" className="console-panel__output" ref={outputRef}>
+          <div
+            id="console-output"
+            className="console-panel__output"
+            ref={outputRef}
+          >
             {consoleLines.map((line, i) => (
-              <div key={i} className={`console-line console-line--${line.type}`}>
-                {line.type === 'response' ? <span className="console-prefix">← </span> : null}
+              <div
+                key={i}
+                className={`console-line console-line--${line.type}`}
+              >
+                {line.type === 'response' ? (
+                  <span className="console-prefix">← </span>
+                ) : null}
                 <span>{line.text}</span>
               </div>
             ))}
@@ -237,14 +317,14 @@ export default function ProblemPage() {
                 autoComplete="off"
                 autoFocus
                 value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSend()}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 disabled={session?.isFinished}
                 ref={inputRef}
               />
-              <button 
+              <button
                 id="send-btn"
-                className="btn btn--primary btn--sm" 
+                className="btn btn--primary btn--sm"
                 onClick={handleSend}
                 disabled={session?.isFinished || !inputValue.trim()}
               >
@@ -254,7 +334,11 @@ export default function ProblemPage() {
           </div>
 
           <div className="console-panel__actions">
-            <button id="reset-btn" className="btn btn--outline btn--sm" onClick={() => initGame(problem)}>
+            <button
+              id="reset-btn"
+              className="btn btn--outline btn--sm"
+              onClick={() => initGame(problem)}
+            >
               🔄 New Game
             </button>
             <button className="btn btn--outline btn--sm" onClick={clearConsole}>
@@ -268,13 +352,15 @@ export default function ProblemPage() {
         <div className="result-overlay" style={{ display: 'flex' }}>
           <div className="result-modal">
             <div className="result-modal__icon">{hasWon ? '🎉' : '💔'}</div>
-            <h2 className={`result-modal__title ${hasWon ? 'result-modal__title--success' : 'result-modal__title--failure'}`}>
+            <h2
+              className={`result-modal__title ${hasWon ? 'result-modal__title--success' : 'result-modal__title--failure'}`}
+            >
               {hasWon ? 'Victory!' : 'Defeated'}
             </h2>
             <p className="result-modal__message">{resultMessage}</p>
             <div className="result-modal__actions">
-              <button 
-                className={`btn ${hasWon ? 'btn--success' : 'btn--primary'}`} 
+              <button
+                className={`btn ${hasWon ? 'btn--success' : 'btn--primary'}`}
                 onClick={() => initGame(problem)}
               >
                 {hasWon ? '🔄 Play Again' : '🔄 Try Again'}

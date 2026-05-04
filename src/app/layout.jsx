@@ -16,8 +16,10 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata = {
   title: 'CodeBattle - Interactive Problem Solving',
-  description: 'CodeBattle - An interactive competitive programming platform where you solve problems by querying the system. Practice binary search, greedy algorithms, and more.',
-  keywords: 'competitive programming, interactive problems, binary search, coding challenges',
+  description:
+    'CodeBattle - An interactive competitive programming platform where you solve problems by querying the system. Practice binary search, greedy algorithms, and more.',
+  keywords:
+    'competitive programming, interactive problems, binary search, coding challenges',
 };
 
 export default function RootLayout({ children }) {
@@ -29,4 +31,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-

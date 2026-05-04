@@ -1,6 +1,12 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from 'react';
 import {
   findUser,
   findUserByEmail,
@@ -82,7 +88,9 @@ export function AuthProvider({ children }) {
     (problem, solved) => {
       if (!user) return;
 
-      const alreadySolved = user.solvedProblems.some((p) => p.id === problem.id);
+      const alreadySolved = user.solvedProblems.some(
+        (p) => p.id === problem.id
+      );
       const newTotalAttempts = user.totalAttempts + 1;
 
       let newSolved = [...user.solvedProblems];
@@ -105,7 +113,9 @@ export function AuthProvider({ children }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout, updateStats }}>
+    <AuthContext.Provider
+      value={{ user, loading, register, login, logout, updateStats }}
+    >
       {children}
     </AuthContext.Provider>
   );

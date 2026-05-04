@@ -30,9 +30,7 @@ export function findUser(username) {
 
 /** Find a user by email (case-insensitive) */
 export function findUserByEmail(email) {
-  return getUsers().find(
-    (u) => u.email.toLowerCase() === email.toLowerCase()
-  );
+  return getUsers().find((u) => u.email.toLowerCase() === email.toLowerCase());
 }
 
 /**
@@ -47,7 +45,7 @@ export function createUser({ username, email, password }) {
     email,
     password, // NOTE: plain text — fine for a demo/educational project
     joinedAt: new Date().toISOString(),
-    solvedProblems: [],  // [{ id, title, difficulty, solvedAt, attempts }]
+    solvedProblems: [], // [{ id, title, difficulty, solvedAt, attempts }]
     totalAttempts: 0,
   };
   users.push(newUser);

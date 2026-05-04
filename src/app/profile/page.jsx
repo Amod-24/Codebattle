@@ -8,7 +8,9 @@ import { useAuth } from '@/context/AuthContext';
 function StatCard({ icon, label, value, color }) {
   return (
     <div className="profile-stat-card">
-      <div className="profile-stat-card__icon" style={{ color }}>{icon}</div>
+      <div className="profile-stat-card__icon" style={{ color }}>
+        {icon}
+      </div>
       <div className="profile-stat-card__value">{value}</div>
       <div className="profile-stat-card__label">{label}</div>
     </div>
@@ -16,11 +18,7 @@ function StatCard({ icon, label, value, color }) {
 }
 
 function DifficultyBadge({ difficulty }) {
-  return (
-    <span className={`tag tag--${difficulty}`}>
-      {difficulty}
-    </span>
-  );
+  return <span className={`tag tag--${difficulty}`}>{difficulty}</span>;
 }
 
 function formatDate(iso) {
@@ -63,14 +61,14 @@ export default function ProfilePage() {
     solvedCount >= 50
       ? 'Grandmaster'
       : solvedCount >= 20
-      ? 'Master'
-      : solvedCount >= 10
-      ? 'Expert'
-      : solvedCount >= 5
-      ? 'Specialist'
-      : solvedCount >= 1
-      ? 'Pupil'
-      : 'Newbie';
+        ? 'Master'
+        : solvedCount >= 10
+          ? 'Expert'
+          : solvedCount >= 5
+            ? 'Specialist'
+            : solvedCount >= 1
+              ? 'Pupil'
+              : 'Newbie';
 
   return (
     <div className="home-page">
@@ -81,14 +79,25 @@ export default function ProfilePage() {
           CodeBattle
         </Link>
         <ul className="navbar__links">
-          <li><Link href="/">Home</Link></li>
-          <li><Link href="/problems">Problems</Link></li>
-          <li><Link href="/profile" className="active">Profile</Link></li>
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          <li>
+            <Link href="/problems">Problems</Link>
+          </li>
+          <li>
+            <Link href="/profile" className="active">
+              Profile
+            </Link>
+          </li>
         </ul>
         <button
           id="profile-logout-btn"
           className="btn btn--outline btn--sm"
-          onClick={() => { logout(); router.push('/'); }}
+          onClick={() => {
+            logout();
+            router.push('/');
+          }}
         >
           Logout
         </button>
@@ -112,10 +121,30 @@ export default function ProfilePage() {
 
         {/* Stats Grid */}
         <div className="profile-stats">
-          <StatCard icon="✅" label="Solved" value={solvedCount} color="var(--success)" />
-          <StatCard icon="🎯" label="Attempts" value={totalAttempts} color="var(--info)" />
-          <StatCard icon="📈" label="Success Rate" value={`${successRate}%`} color="var(--warning)" />
-          <StatCard icon="🏅" label="Rank" value={rank} color="var(--text-accent)" />
+          <StatCard
+            icon="✅"
+            label="Solved"
+            value={solvedCount}
+            color="var(--success)"
+          />
+          <StatCard
+            icon="🎯"
+            label="Attempts"
+            value={totalAttempts}
+            color="var(--info)"
+          />
+          <StatCard
+            icon="📈"
+            label="Success Rate"
+            value={`${successRate}%`}
+            color="var(--warning)"
+          />
+          <StatCard
+            icon="🏅"
+            label="Rank"
+            value={rank}
+            color="var(--text-accent)"
+          />
         </div>
 
         {/* Solved Problems */}
@@ -125,7 +154,11 @@ export default function ProfilePage() {
             <div className="profile-empty">
               <div className="profile-empty__icon">🧩</div>
               <p>No problems solved yet.</p>
-              <Link href="/problems" className="btn btn--primary btn--sm" style={{ marginTop: '1rem' }}>
+              <Link
+                href="/problems"
+                className="btn btn--primary btn--sm"
+                style={{ marginTop: '1rem' }}
+              >
                 Start Solving
               </Link>
             </div>
@@ -136,13 +169,17 @@ export default function ProfilePage() {
                   <div className="profile-solved-item__left">
                     <span className="profile-solved-item__check">✓</span>
                     <div>
-                      <div className="profile-solved-item__title">{p.title}</div>
+                      <div className="profile-solved-item__title">
+                        {p.title}
+                      </div>
                       <div className="profile-solved-item__id">{p.id}</div>
                     </div>
                   </div>
                   <div className="profile-solved-item__right">
                     <DifficultyBadge difficulty={p.difficulty} />
-                    <span className="profile-solved-item__date">{formatDate(p.solvedAt)}</span>
+                    <span className="profile-solved-item__date">
+                      {formatDate(p.solvedAt)}
+                    </span>
                   </div>
                 </div>
               ))}

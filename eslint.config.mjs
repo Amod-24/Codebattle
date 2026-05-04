@@ -28,6 +28,8 @@ export default [
         HTMLElement: 'readonly',
         Event: 'readonly',
         process: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
       },
     },
   },

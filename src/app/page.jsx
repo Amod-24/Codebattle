@@ -17,7 +17,7 @@ export default function Home() {
       '> Loading interactive problems...',
       '> Establishing secure connection...',
       '> Ready. ? to query, ! to answer.',
-      '_'
+      '_',
     ];
 
     let currentLine = 0;
@@ -72,9 +72,19 @@ export default function Home() {
           CodeBattle
         </Link>
         <ul className="navbar__links">
-          <li><Link href="/" className="active">Home</Link></li>
-          <li><Link href="/problems">Problems</Link></li>
-          {user && <li><Link href="/profile">Profile</Link></li>}
+          <li>
+            <Link href="/" className="active">
+              Home
+            </Link>
+          </li>
+          <li>
+            <Link href="/problems">Problems</Link>
+          </li>
+          {user && (
+            <li>
+              <Link href="/profile">Profile</Link>
+            </li>
+          )}
         </ul>
 
         {/* Auth section */}
@@ -116,8 +126,12 @@ export default function Home() {
           </div>
         ) : (
           <div className="navbar__auth">
-            <Link href="/login" className="btn btn--outline btn--sm">Sign In</Link>
-            <Link href="/register" className="btn btn--primary btn--sm">Register</Link>
+            <Link href="/login" className="btn btn--outline btn--sm">
+              Sign In
+            </Link>
+            <Link href="/register" className="btn btn--primary btn--sm">
+              Register
+            </Link>
           </div>
         )}
       </nav>
@@ -128,14 +142,23 @@ export default function Home() {
             Master <span>Interactive</span> Algorithms
           </h1>
           <p className="hero__subtitle">
-            A new breed of competitive programming where you deduce hidden answers
-            through logical queries against our judge system.
+            A new breed of competitive programming where you deduce hidden
+            answers through logical queries against our judge system.
           </p>
           <div className="hero__actions">
-            <Link href="/problems" id="cta-start" className="btn btn--primary btn--lg">
+            <Link
+              href="/problems"
+              id="cta-start"
+              className="btn btn--primary btn--lg"
+            >
               Start Solving
             </Link>
-            <a href="https://github.com/Amod-24/Codebattle" target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--lg">
+            <a
+              href="https://github.com/Amod-24/Codebattle"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--outline btn--lg"
+            >
               View on GitHub
             </a>
           </div>
@@ -148,8 +171,7 @@ export default function Home() {
               <span className="dot dot--yellow"></span>
               <span className="dot dot--green"></span>
             </div>
-            <div className="terminal-body" ref={terminalRef}>
-            </div>
+            <div className="terminal-body" ref={terminalRef}></div>
           </div>
         </div>
       </main>
@@ -158,20 +180,28 @@ export default function Home() {
         <div className="feature-card">
           <div className="feature-icon">❓</div>
           <h3>Query the System</h3>
-          <p>Unlike traditional problems with fixed inputs, interact with the judge in real-time to gather information.</p>
+          <p>
+            Unlike traditional problems with fixed inputs, interact with the
+            judge in real-time to gather information.
+          </p>
         </div>
         <div className="feature-card">
           <div className="feature-icon">🧠</div>
           <h3>Deduce Answers</h3>
-          <p>Use logic and algorithms like Binary Search to narrow down possibilities with limited queries.</p>
+          <p>
+            Use logic and algorithms like Binary Search to narrow down
+            possibilities with limited queries.
+          </p>
         </div>
         <div className="feature-card">
           <div className="feature-icon">⚡</div>
           <h3>Instant Feedback</h3>
-          <p>Get immediate responses to your queries and attempts. Learn from mistakes rapidly.</p>
+          <p>
+            Get immediate responses to your queries and attempts. Learn from
+            mistakes rapidly.
+          </p>
         </div>
       </section>
     </div>
   );
 }
-

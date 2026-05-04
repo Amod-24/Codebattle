@@ -8,7 +8,12 @@ import { useAuth } from '@/context/AuthContext';
 export default function RegisterPage() {
   const { register } = useAuth();
   const router = useRouter();
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' });
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirm: '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -51,14 +56,26 @@ export default function RegisterPage() {
           <div className="auth-card__header">
             <div className="auth-card__icon">🚀</div>
             <h1 className="auth-card__title">Join CodeBattle</h1>
-            <p className="auth-card__subtitle">Create your account and start competing</p>
+            <p className="auth-card__subtitle">
+              Create your account and start competing
+            </p>
           </div>
 
-          <form className="auth-form" onSubmit={handleSubmit} id="register-form">
-            {error && <div className="auth-error" role="alert">{error}</div>}
+          <form
+            className="auth-form"
+            onSubmit={handleSubmit}
+            id="register-form"
+          >
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
 
             <div className="auth-field">
-              <label htmlFor="reg-username" className="auth-label">Username</label>
+              <label htmlFor="reg-username" className="auth-label">
+                Username
+              </label>
               <input
                 id="reg-username"
                 name="username"
@@ -73,7 +90,9 @@ export default function RegisterPage() {
             </div>
 
             <div className="auth-field">
-              <label htmlFor="reg-email" className="auth-label">Email</label>
+              <label htmlFor="reg-email" className="auth-label">
+                Email
+              </label>
               <input
                 id="reg-email"
                 name="email"
@@ -88,7 +107,9 @@ export default function RegisterPage() {
             </div>
 
             <div className="auth-field">
-              <label htmlFor="reg-password" className="auth-label">Password</label>
+              <label htmlFor="reg-password" className="auth-label">
+                Password
+              </label>
               <input
                 id="reg-password"
                 name="password"
@@ -103,7 +124,9 @@ export default function RegisterPage() {
             </div>
 
             <div className="auth-field">
-              <label htmlFor="reg-confirm" className="auth-label">Confirm Password</label>
+              <label htmlFor="reg-confirm" className="auth-label">
+                Confirm Password
+              </label>
               <input
                 id="reg-confirm"
                 name="confirm"
@@ -129,7 +152,9 @@ export default function RegisterPage() {
 
           <p className="auth-footer">
             Already have an account?{' '}
-            <Link href="/login" className="auth-link">Sign in</Link>
+            <Link href="/login" className="auth-link">
+              Sign in
+            </Link>
           </p>
         </div>
       </main>

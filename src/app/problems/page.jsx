@@ -12,7 +12,9 @@ export default function ProblemsPage() {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const solvedIds = user ? new Set(user.solvedProblems.map((p) => p.id)) : new Set();
+  const solvedIds = user
+    ? new Set(user.solvedProblems.map((p) => p.id))
+    : new Set();
 
   return (
     <>
@@ -22,9 +24,19 @@ export default function ProblemsPage() {
           CodeBattle
         </Link>
         <ul className="navbar__links">
-          <li><Link href="/">Home</Link></li>
-          <li><Link href="/problems" className="active">Problems</Link></li>
-          {user && <li><Link href="/profile">Profile</Link></li>}
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          <li>
+            <Link href="/problems" className="active">
+              Problems
+            </Link>
+          </li>
+          {user && (
+            <li>
+              <Link href="/profile">Profile</Link>
+            </li>
+          )}
         </ul>
 
         {user ? (
@@ -55,7 +67,10 @@ export default function ProblemsPage() {
                 <button
                   id="problems-logout-btn"
                   className="navbar__dropdown-item navbar__dropdown-item--danger"
-                  onClick={() => { logout(); setDropdownOpen(false); }}
+                  onClick={() => {
+                    logout();
+                    setDropdownOpen(false);
+                  }}
                   role="menuitem"
                 >
                   🚪 Logout
@@ -65,8 +80,12 @@ export default function ProblemsPage() {
           </div>
         ) : (
           <div className="navbar__auth">
-            <Link href="/login" className="btn btn--outline btn--sm">Sign In</Link>
-            <Link href="/register" className="btn btn--primary btn--sm">Register</Link>
+            <Link href="/login" className="btn btn--outline btn--sm">
+              Sign In
+            </Link>
+            <Link href="/register" className="btn btn--primary btn--sm">
+              Register
+            </Link>
           </div>
         )}
       </nav>
@@ -74,27 +93,45 @@ export default function ProblemsPage() {
       <div className="problems-page">
         <div className="problems-header">
           <h1>Problem Library</h1>
-          <p>Select an interactive problem to solve. Remember, you must find the answer by querying the system!</p>
+          <p>
+            Select an interactive problem to solve. Remember, you must find the
+            answer by querying the system!
+          </p>
         </div>
 
         <div className="problems-grid">
           {problems.map((problem) => {
             const isSolved = solvedIds.has(problem.id);
             return (
-              <Link href={`/problem/${problem.id}`} key={problem.id} className={`problem-card${isSolved ? ' problem-card--solved' : ''}`}>
+              <Link
+                href={`/problem/${problem.id}`}
+                key={problem.id}
+                className={`problem-card${isSolved ? ' problem-card--solved' : ''}`}
+              >
                 <div className="problem-card__header">
                   <div>
-                    <span className={`tag tag--${problem.difficulty}`}>{problem.difficulty}</span>
-                    {problem.tags.map(t => (
-                      <span key={t} className="tag tag--interactive">{t}</span>
+                    <span className={`tag tag--${problem.difficulty}`}>
+                      {problem.difficulty}
+                    </span>
+                    {problem.tags.map((t) => (
+                      <span key={t} className="tag tag--interactive">
+                        {t}
+                      </span>
                     ))}
                   </div>
                   {isSolved && (
-                    <span className="problem-card__solved-badge" title="Solved">✓ Solved</span>
+                    <span className="problem-card__solved-badge" title="Solved">
+                      ✓ Solved
+                    </span>
                   )}
                 </div>
                 <h2 className="problem-card__title">{problem.title}</h2>
-                <p className="problem-card__desc" dangerouslySetInnerHTML={{ __html: problem.statement.description }}></p>
+                <p
+                  className="problem-card__desc"
+                  dangerouslySetInnerHTML={{
+                    __html: problem.statement.description,
+                  }}
+                ></p>
 
                 <div className="problem-card__meta">
                   <span>⚡ {problem.maxQueries} queries max</span>
@@ -108,4 +145,3 @@ export default function ProblemsPage() {
     </>
   );
 }
-

@@ -43,14 +43,22 @@ export default function LoginPage() {
           <div className="auth-card__header">
             <div className="auth-card__icon">⚔️</div>
             <h1 className="auth-card__title">Welcome Back</h1>
-            <p className="auth-card__subtitle">Sign in to continue your journey</p>
+            <p className="auth-card__subtitle">
+              Sign in to continue your journey
+            </p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit} id="login-form">
-            {error && <div className="auth-error" role="alert">{error}</div>}
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
 
             <div className="auth-field">
-              <label htmlFor="login-username" className="auth-label">Username</label>
+              <label htmlFor="login-username" className="auth-label">
+                Username
+              </label>
               <input
                 id="login-username"
                 name="username"
@@ -65,7 +73,9 @@ export default function LoginPage() {
             </div>
 
             <div className="auth-field">
-              <label htmlFor="login-password" className="auth-label">Password</label>
+              <label htmlFor="login-password" className="auth-label">
+                Password
+              </label>
               <input
                 id="login-password"
                 name="password"
@@ -91,7 +101,9 @@ export default function LoginPage() {
 
           <p className="auth-footer">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="auth-link">Register here</Link>
+            <Link href="/register" className="auth-link">
+              Register here
+            </Link>
           </p>
         </div>
       </main>
