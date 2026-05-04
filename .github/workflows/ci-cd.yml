@@ -67,6 +67,20 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Import existing resources (if they exist)
+        run: |
+          # Import ECR repo if it already exists
+          aws ecr describe-repositories --repository-names codebattle-repo --region $AWS_REGION 2>/dev/null && \
+            terraform import aws_ecr_repository.main codebattle-repo || \
+            echo "ECR repo does not exist yet, will be created"
+
+          # Import CloudWatch log group if it already exists
+          aws logs describe-log-groups --log-group-name-prefix /ecs/codebattle --region $AWS_REGION \
+            --query 'logGroups[?logGroupName==`/ecs/codebattle`].logGroupName' \
+            --output text | grep -q '/ecs/codebattle' && \
+            terraform import aws_cloudwatch_log_group.ecs_log_group /ecs/codebattle || \
+            echo "Log group does not exist yet, will be created"
+
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
