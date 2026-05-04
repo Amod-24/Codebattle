@@ -31,11 +31,6 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      # OPTIONAL: start app if needed for E2E
-      # - run: npm run build
-      # - run: npm start &
-      # - run: npx wait-on http://localhost:3000
-
       - name: Run E2E Tests
         run: npm run test:e2e
 
@@ -66,7 +61,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ✅ Proper AWS auth (FIXED)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -74,7 +68,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # ✅ Debug step (very useful)
       - name: Verify AWS Auth
         run: aws sts get-caller-identity
 
@@ -87,7 +80,6 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # ✅ Safe import logic (FIXED for your new Terraform)
       - name: Import existing resources if needed
         run: |
           set -e
@@ -129,12 +121,15 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REPOSITORY: codebattle-repo
+      ECS_CLUSTER: codebattle-cluster
+      ECS_SERVICE: codebattle-service
+      TASK_FAMILY: codebattle-task
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ✅ Proper AWS auth
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -150,7 +145,6 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: codebattle-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
@@ -159,11 +153,22 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # ✅ safer ECS fetch
-      - name: Fetch task definition
+      # ✅ FIXED: dynamic task definition fetch
+      - name: Fetch latest task definition
         run: |
+          TASK_DEF=$(aws ecs list-task-definitions \
+            --family-prefix $TASK_FAMILY \
+            --sort DESC \
+            --max-items 1 \
+            --query 'taskDefinitionArns[0]' \
+            --output text)
+
+          echo "Using task definition: $TASK_DEF"
+
+          echo "TASK_DEF=$TASK_DEF" >> $GITHUB_ENV
+
           aws ecs describe-task-definition \
-            --task-definition codebattle-task \
+            --task-definition $TASK_DEF \
             --query taskDefinition > task-definition.json
 
       - name: Render new task definition
@@ -178,6 +183,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: codebattle-service
-          cluster: codebattle-cluster
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
