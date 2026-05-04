@@ -9,6 +9,12 @@ terraform {
       version = "~> 3.0"
     }
   }
+
+  backend "s3" {
+    bucket = "codebattle-terraform-state"
+    key    = "global/terraform.tfstate"
+    region = "ap-south-1"
+  }
 }
 
 provider "aws" {
@@ -17,14 +23,27 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-# --- RANDOM SUFFIX (only for safe unique resources) ---
+# ✅ USE DEFAULT VPC (fix for VPC limit issue)
+data "aws_vpc" "existing" {
+  default = true
+}
+
+# ✅ GET DEFAULT SUBNETS
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing.id]
+  }
+}
+
+# --- RANDOM SUFFIX ---
 resource "random_string" "suffix" {
   length  = 6
   special = false
   upper   = false
 }
 
-# --- S3 Bucket (unique already) ---
+# --- S3 Bucket ---
 resource "aws_s3_bucket" "artifacts" {
   bucket        = "${var.project_name}-artifacts-${random_string.suffix.result}"
   force_destroy = true
@@ -54,7 +73,7 @@ resource "aws_s3_bucket_public_access_block" "artifacts_public_access" {
   restrict_public_buckets = true
 }
 
-# --- ECR Repository (KEEP STABLE NAME) ---
+# --- ECR Repository ---
 resource "aws_ecr_repository" "main" {
   name                 = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
@@ -69,26 +88,11 @@ resource "aws_ecr_repository" "main" {
   }
 }
 
-# --- VPC ---
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
-
-  name = "${var.project_name}-vpc"
-  cidr = "10.0.0.0/16"
-
-  azs            = ["${var.aws_region}a", "${var.aws_region}b"]
-  public_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-
-  enable_nat_gateway = false
-  enable_vpn_gateway = false
-}
-
 # --- Security Group ---
 resource "aws_security_group" "ecs_sg" {
   name        = "${var.project_name}-ecs-sg-${random_string.suffix.result}"
   description = "Security group for ECS tasks"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = data.aws_vpc.existing.id
 
   ingress {
     from_port   = 3000
@@ -105,7 +109,7 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# --- IAM Role (unique to avoid conflict) ---
+# --- IAM Role ---
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "${var.project_name}-ecs-task-execution-role-${random_string.suffix.result}"
 
@@ -133,7 +137,7 @@ resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
 }
 
-# --- CloudWatch Logs (unique name) ---
+# --- CloudWatch Logs ---
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/ecs/${var.project_name}-${random_string.suffix.result}"
   retention_in_days = 7
@@ -183,7 +187,7 @@ resource "aws_ecs_service" "main" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = module.vpc.public_subnets
+    subnets          = data.aws_subnets.default.ids
     security_groups  = [aws_security_group.ecs_sg.id]
     assign_public_ip = true
   }
