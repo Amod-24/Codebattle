@@ -101,8 +101,9 @@ jobs:
             fi
           }
 
-          import_if_exists "aws_ecr_repository.main" "codebattle-repo" \
-            "aws ecr describe-repositories --repository-names codebattle-repo >/dev/null 2>&1"
+
+          import_if_exists "aws_ecr_repository.main" "codebattle" \
+            "aws ecr describe-repositories --repository-names codebattle >/dev/null 2>&1"
 
           import_if_exists "aws_ecs_cluster.main" "codebattle-cluster" \
             "aws ecs describe-clusters --clusters codebattle-cluster --query 'clusters[0].clusterArn' --output text | grep -q 'arn:'"
@@ -121,7 +122,7 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      ECR_REPOSITORY: codebattle-repo
+      ECR_REPOSITORY: codebattle   
       ECS_CLUSTER: codebattle-cluster
       ECS_SERVICE: codebattle-service
       TASK_FAMILY: codebattle-task
@@ -153,7 +154,6 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # ✅ FIXED: dynamic task definition fetch
       - name: Fetch latest task definition
         run: |
           TASK_DEF=$(aws ecs list-task-definitions \
@@ -164,7 +164,6 @@ jobs:
             --output text)
 
           echo "Using task definition: $TASK_DEF"
-
           echo "TASK_DEF=$TASK_DEF" >> $GITHUB_ENV
 
           aws ecs describe-task-definition \

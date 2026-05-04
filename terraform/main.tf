@@ -4,10 +4,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
   }
 
   backend "s3" {
@@ -21,84 +17,55 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_caller_identity" "current" {}
-
-# ----------------------------
-# USE DEFAULT VPC (FIXED)
-# ----------------------------
-data "aws_vpc" "existing" {
+# ---------------- VPC (default) ----------------
+data "aws_vpc" "default" {
   default = true
 }
 
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
-    values = [data.aws_vpc.existing.id]
+    values = [data.aws_vpc.default.id]
   }
 }
 
-# ----------------------------
-# ONLY SAFE RANDOMNESS
-# ----------------------------
-resource "random_string" "suffix" {
-  length  = 6
-  special = false
-  upper   = false
+# ---------------- ECR ----------------
+resource "aws_ecr_repository" "app" {
+  name = var.project_name
 }
 
-# ----------------------------
-# S3 ARTIFACTS BUCKET (SAFE UNIQUE)
-# ----------------------------
-resource "aws_s3_bucket" "artifacts" {
-  bucket        = "${var.project_name}-artifacts-${random_string.suffix.result}"
-  force_destroy = true
+# ---------------- ECS Cluster ----------------
+resource "aws_ecs_cluster" "main" {
+  name = "${var.project_name}-cluster"
 }
 
-resource "aws_s3_bucket_versioning" "artifacts_versioning" {
-  bucket = aws_s3_bucket.artifacts.id
-  versioning_configuration {
-    status = "Enabled"
-  }
+# ---------------- IAM Role ----------------
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "${var.project_name}-task-exec-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+    }]
+  })
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts_encryption" {
-  bucket = aws_s3_bucket.artifacts.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
+resource "aws_iam_role_policy_attachment" "ecs_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_s3_bucket_public_access_block" "artifacts_public_access" {
-  bucket                  = aws_s3_bucket.artifacts.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
+# ---------------- Security Groups ----------------
 
-# ----------------------------
-# ECR (STABLE NAME - IMPORTANT)
-# ----------------------------
-resource "aws_ecr_repository" "main" {
-  name                 = "${var.project_name}-repo"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-# ----------------------------
-# SECURITY GROUP
-# ----------------------------
+# ALB SG (public internet access)
 resource "aws_security_group" "alb_sg" {
-  name        = "${var.project_name}-alb-sg"
-  description = "Security group for ALB"
-  vpc_id      = data.aws_vpc.existing.id
+  name   = "${var.project_name}-alb-sg"
+  vpc_id = data.aws_vpc.default.id
 
   ingress {
     from_port   = 80
@@ -115,10 +82,10 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
+# ECS SG (only ALB can access)
 resource "aws_security_group" "ecs_sg" {
-  name        = "${var.project_name}-ecs-sg"
-  description = "Security group for ECS tasks"
-  vpc_id      = data.aws_vpc.existing.id
+  name   = "${var.project_name}-ecs-sg"
+  vpc_id = data.aws_vpc.default.id
 
   ingress {
     from_port       = 3000
@@ -135,34 +102,30 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# ----------------------------
-# APPLICATION LOAD BALANCER
-# ----------------------------
+# ---------------- LOAD BALANCER ----------------
 resource "aws_lb" "main" {
   name               = "${var.project_name}-alb"
-  internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = data.aws_subnets.default.ids
+  internal           = false
+
+  security_groups = [aws_security_group.alb_sg.id]
+  subnets         = data.aws_subnets.default.ids
 }
 
+# Target Group (ECS connects here)
 resource "aws_lb_target_group" "app" {
   name        = "${var.project_name}-tg"
   port        = 3000
   protocol    = "HTTP"
-  vpc_id      = data.aws_vpc.existing.id
+  vpc_id      = data.aws_vpc.default.id
   target_type = "ip"
 
   health_check {
-    path                = "/"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    matcher             = "200"
+    path = "/"
   }
 }
 
+# Listener (public entry point)
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
@@ -174,104 +137,44 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# ----------------------------
-# IAM ROLE (NO RANDOM SUFFIX)
-# ----------------------------
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.project_name}-ecs-task-execution-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# ----------------------------
-# ECS CLUSTER
-# ----------------------------
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project_name}-cluster"
-}
-
-# ----------------------------
-# CLOUDWATCH LOG GROUP (NO RANDOM)
-# ----------------------------
-resource "aws_cloudwatch_log_group" "ecs_log_group" {
-  name              = "/ecs/${var.project_name}"
-  retention_in_days = 7
-}
-
-# ----------------------------
-# ECS TASK DEFINITION (FIXED FAMILY NAME)
-# ----------------------------
+# ---------------- ECS Task ----------------
 resource "aws_ecs_task_definition" "app" {
-  family                   = "${var.project_name}-task"
-  network_mode             = "awsvpc"
+  family                   = var.project_name
   requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
   cpu                      = 256
   memory                   = 512
 
   execution_role_arn = aws_iam_role.ecs_task_execution_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "${var.project_name}-container"
-      image     = "${aws_ecr_repository.main.repository_url}:latest"
-      essential = true
+  container_definitions = jsonencode([{
+    name  = "app"
+    image = "${aws_ecr_repository.app.repository_url}:latest"
 
-      portMappings = [
-        {
-          containerPort = 3000
-          hostPort      = 3000
-        }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
-      }
-    }
-  ])
+    portMappings = [{
+      containerPort = 3000
+      hostPort      = 3000
+    }]
+  }])
 }
 
-# ----------------------------
-# ECS SERVICE
-# ----------------------------
-resource "aws_ecs_service" "main" {
-  name            = "${var.project_name}-service"
+# ---------------- ECS SERVICE ----------------
+resource "aws_ecs_service" "app" {
+  name            = var.project_name
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = data.aws_subnets.default.ids
-    security_groups  = [aws_security_group.ecs_sg.id]
+    subnets         = data.aws_subnets.default.ids
+    security_groups = [aws_security_group.ecs_sg.id]
     assign_public_ip = true
   }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
-    container_name   = "${var.project_name}-container"
+    container_name   = "app"
     container_port   = 3000
-  }
-
-  lifecycle {
-    ignore_changes = [task_definition, desired_count]
   }
 }
