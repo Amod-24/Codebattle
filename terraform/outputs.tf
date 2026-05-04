@@ -13,3 +13,8 @@ output "ecs_service_name" {
 output "s3_bucket_name" {
   value = aws_s3_bucket.artifacts.id
 }
+
+output "alb_dns_name" {
+  value       = aws_lb.main.dns_name
+  description = "The public DNS name of the Application Load Balancer"
+}
