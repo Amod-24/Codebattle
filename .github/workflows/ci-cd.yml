@@ -55,6 +55,9 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
+      - name: Verify AWS Auth
+        run: aws sts get-caller-identity
+        
       - name: Checkout code
         uses: actions/checkout@v4
 
