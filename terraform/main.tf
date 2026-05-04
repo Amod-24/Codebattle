@@ -23,12 +23,13 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-# ✅ USE DEFAULT VPC (fix for VPC limit issue)
+# ----------------------------
+# USE DEFAULT VPC (FIXED)
+# ----------------------------
 data "aws_vpc" "existing" {
   default = true
 }
 
-# ✅ GET DEFAULT SUBNETS
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
@@ -36,14 +37,18 @@ data "aws_subnets" "default" {
   }
 }
 
-# --- RANDOM SUFFIX ---
+# ----------------------------
+# ONLY SAFE RANDOMNESS
+# ----------------------------
 resource "random_string" "suffix" {
   length  = 6
   special = false
   upper   = false
 }
 
-# --- S3 Bucket ---
+# ----------------------------
+# S3 ARTIFACTS BUCKET (SAFE UNIQUE)
+# ----------------------------
 resource "aws_s3_bucket" "artifacts" {
   bucket        = "${var.project_name}-artifacts-${random_string.suffix.result}"
   force_destroy = true
@@ -58,6 +63,7 @@ resource "aws_s3_bucket_versioning" "artifacts_versioning" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts_encryption" {
   bucket = aws_s3_bucket.artifacts.id
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -73,7 +79,9 @@ resource "aws_s3_bucket_public_access_block" "artifacts_public_access" {
   restrict_public_buckets = true
 }
 
-# --- ECR Repository ---
+# ----------------------------
+# ECR (STABLE NAME - IMPORTANT)
+# ----------------------------
 resource "aws_ecr_repository" "main" {
   name                 = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
@@ -82,15 +90,13 @@ resource "aws_ecr_repository" "main" {
   image_scanning_configuration {
     scan_on_push = true
   }
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
-# --- Security Group ---
+# ----------------------------
+# SECURITY GROUP
+# ----------------------------
 resource "aws_security_group" "ecs_sg" {
-  name        = "${var.project_name}-ecs-sg-${random_string.suffix.result}"
+  name        = "${var.project_name}-ecs-sg"
   description = "Security group for ECS tasks"
   vpc_id      = data.aws_vpc.existing.id
 
@@ -109,21 +115,21 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# --- IAM Role ---
+# ----------------------------
+# IAM ROLE (NO RANDOM SUFFIX)
+# ----------------------------
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.project_name}-ecs-task-execution-role-${random_string.suffix.result}"
+  name = "${var.project_name}-ecs-task-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
       }
-    ]
+    }]
   })
 }
 
@@ -132,18 +138,24 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# --- ECS Cluster ---
+# ----------------------------
+# ECS CLUSTER
+# ----------------------------
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
 }
 
-# --- CloudWatch Logs ---
+# ----------------------------
+# CLOUDWATCH LOG GROUP (NO RANDOM)
+# ----------------------------
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
-  name              = "/ecs/${var.project_name}-${random_string.suffix.result}"
+  name              = "/ecs/${var.project_name}"
   retention_in_days = 7
 }
 
-# --- ECS Task Definition ---
+# ----------------------------
+# ECS TASK DEFINITION (FIXED FAMILY NAME)
+# ----------------------------
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.project_name}-task"
   network_mode             = "awsvpc"
@@ -178,7 +190,9 @@ resource "aws_ecs_task_definition" "app" {
   ])
 }
 
-# --- ECS Service ---
+# ----------------------------
+# ECS SERVICE
+# ----------------------------
 resource "aws_ecs_service" "main" {
   name            = "${var.project_name}-service"
   cluster         = aws_ecs_cluster.main.id

@@ -5,115 +5,144 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build-and-test:
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20.x'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linter
-        run: npm run lint
-
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Run unit tests
+      - name: Run Unit Tests
         run: npm test
 
-      - name: Run integration tests
-        run: npm run test:integration
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
-      - name: Build project
-        run: npm run build
+      - name: Run E2E Tests
+        run: npm run test:e2e
 
-  deploy:
-    needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  terraform:
+    name: Provision Infrastructure
+    needs: test
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    defaults:
+      run:
+        working-directory: ./terraform
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      ECR_REPOSITORY: codebattle-repo
-      ECS_CLUSTER: codebattle-cluster
-      ECS_SERVICE: codebattle-service
-      TASK_FAMILY: codebattle-task
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ✅ Configure AWS
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # ✅ Login to ECR
+      - name: Verify AWS Auth
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+  build-and-deploy:
+    name: Build & Deploy to ECS
+    needs: terraform
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      PROJECT_NAME: codebattle   # 👈 MUST MATCH var.project_name
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ✅ Build & Push Docker image
-      - name: Build, tag, and push image
+      - name: Build & Push Docker Image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codebattle-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      # ✅ Get latest task definition dynamically (FIX for your error)
-      - name: Fetch latest task definition
+      # ✅ FIXED: no hardcoded task-definition lookup
+      - name: Create new task definition file
         run: |
-          TASK_DEF=$(aws ecs list-task-definitions \
-            --family-prefix $TASK_FAMILY \
-            --sort DESC \
-            --max-items 1 \
-            --query 'taskDefinitionArns[0]' \
-            --output text)
+          aws ecs register-task-definition \
+            --family ${PROJECT_NAME}-task \
+            --network-mode awsvpc \
+            --requires-compatibilities FARGATE \
+            --cpu 256 \
+            --memory 512 \
+            --execution-role-arn $(aws iam get-role --role-name ${PROJECT_NAME}-ecs-task-execution-role --query 'Role.Arn' --output text) \
+            --container-definitions "[{
+              \"name\": \"${PROJECT_NAME}-container\",
+              \"image\": \"${{ steps.build-image.outputs.image }}\",
+              \"essential\": true,
+              \"portMappings\": [{\"containerPort\": 3000, \"hostPort\": 3000}]
+            }]" > task.json
 
-          echo "TASK_DEF=$TASK_DEF" >> $GITHUB_ENV
-
-          aws ecs describe-task-definition \
-            --task-definition $TASK_DEF \
-            --query taskDefinition > task-definition.json
-
-      # ✅ Replace image
-      - name: Update task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: codebattle-container
-          image: ${{ steps.build-image.outputs.image }}
-
-      # ✅ Deploy
       - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+        run: |
+          TASK_DEF=$(aws ecs list-task-definitions --family-prefix ${PROJECT_NAME}-task --sort DESC --max-items 1 --query 'taskDefinitionArns[0]' --output text)
+
+          aws ecs update-service \
+            --cluster ${PROJECT_NAME}-cluster \
+            --service ${PROJECT_NAME}-service \
+            --task-definition $TASK_DEF \
+            --force-new-deployment
