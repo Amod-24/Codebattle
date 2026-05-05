@@ -175,7 +175,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: codebattle-container
+          container-name: codebattle
           image: ${{ steps.build-image.outputs.image }}
 
       - name: Deploy to ECS
