@@ -124,7 +124,7 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       ECR_REPOSITORY: codebattle   
       ECS_CLUSTER: codebattle-cluster
-      ECS_SERVICE: codebattle-service
+      ECS_SERVICE: codebattle
       TASK_FAMILY: codebattle
 
     steps:
